@@ -1,0 +1,31 @@
+name: cloud_clock
+description: Alarms and timers that sync
+
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+version: 0.0.1+1
+
+environment:
+  sdk: ^3.6.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  english_words: ^4.0.0
+  provider: ^6.1.2
+  supabase_flutter: ^2.0.0
+  crypto: ^3.0.6
+  get: ^4.6.6
+  date_time_picker: ^2.1.0
+  flutter_dotenv: ^5.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - .env
