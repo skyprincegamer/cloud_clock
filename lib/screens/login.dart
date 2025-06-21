@@ -19,41 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController passwordController = TextEditingController();
 
   void _login() async {
-    String email = emailController.text;
-    String enteredPassword = passwordController.text;
-    late String ogPass;
-    late String hashPass;
-    late int id;
-     try {
-    // Await the data directly without .execute()
-    final List<dynamic> data = await Supabase.instance.client
-        .from('users')
-        .select('password , id').filter('username','eq' ,email ).limit(1);
-    ogPass = data[0]['password'] ;
-    if (data.isEmpty) {
-      print('No users found.');
-    } else {
-      hashPass = sha256.convert(utf8.encode(enteredPassword)).toString();
-      if(ogPass ==  hashPass) {
-        id = data[0]['id'];
-        print("id is $id");
-      }
-    }
-  } catch (e) {
-    print('Exception occurred: $e');
-  }    
-    // Show dialog or snackbar
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: 
-      (ogPass == hashPass)?
-      Text('Password Valid'): Text('Password Invalid') ),
-    );
-    if(ogPass == hashPass){
-      final globalController = Get.put(GlobalController());
-      globalController.id = id;
-      Navigator.push(context, MaterialPageRoute(builder: (context) =>  Home()));
-    }
-   
+
       }
 
   @override
@@ -81,7 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   decoration: InputDecoration(
                     labelText: 'Email',
                     border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.email),
+                    prefixIcon: Icon(Icons.supervised_user_circle_outlined),
                   ),
                 ),
                 SizedBox(height: 20),

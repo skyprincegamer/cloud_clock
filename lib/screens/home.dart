@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:date_time_picker/date_time_picker.dart';
 import 'package:intl/intl.dart';
 import 'login.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -15,6 +16,7 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
+  var Timer_Map = Map<int,Timer>() ;
   void sendDateToDB(String? date) async {
     print("sendDateToDB called with: $date");
 
@@ -37,18 +39,17 @@ class _HomeState extends State<Home> {
       print("Error parsing date: $e");
     }
   }
-  void runCodeAt(DateTime target , Function clbk){
+  void runCodeAt(DateTime target , int alarm_id,  Function clbk){
     final diff = target.difference(DateTime.now());
     if(diff.isNegative){
       print("Aint possible");
       return;
     }
-    print('Timer set for $diff , target is $target , now is ${DateTime.now()}');
-    Timer(diff ,(){
-      
+    print('Timer set for $diff and id $alarm_id');
+    Timer_Map[alarm_id] = Timer(diff, ()
+    {
       clbk();
       });
-
   }
 
   @override
@@ -90,9 +91,20 @@ class _HomeState extends State<Home> {
                   for(final alarm in alarms){
                     if(alarm['active']){
                       final formatted = dformat.parseUtc(alarm['alarm_at']);
-                      runCodeAt(formatted, (){
-                          print("This code was run out of the loop");
+                      runCodeAt(formatted,alarm['alarm_id'], () async{
+                        final url = 'https://www.youtube.com/watch?v=PflEJM-aUug';
+                        if (await canLaunchUrl(Uri.parse(url))) {
+                          await launchUrl(Uri.parse(url));
+                        } else {
+                           print('Could not launch $url');
+                        }
                       });                      
+                    }
+                    else if(!alarm['active']){
+                      if(Timer_Map.containsKey(alarm['alarm_id'])){
+                        Timer_Map[alarm['alarm_id']]?.cancel();
+                        print("Timer ${alarm['alarm_id']} cancelled");
+                      }
                     }
                   }
 
@@ -113,7 +125,13 @@ class _HomeState extends State<Home> {
                                       .from('alarms')
                                       .update({'active': v})
                                       .eq('alarm_id', alarm['alarm_id']);
-                            })
+                            }),
+                          IconButton(onPressed: () async{
+                            await Supabase.instance.client
+                            .from('alarms')
+                            .delete().eq('alarm_id', alarm['alarm_id']);
+                          }, icon:Icon(Icons.delete)
+                          )
                           ],
                         ),
                         
@@ -177,6 +195,7 @@ class _HomeState extends State<Home> {
                 style: TextStyle(fontSize: 24.0),
               ),
             ),
+
           ],
         ),
       ),
