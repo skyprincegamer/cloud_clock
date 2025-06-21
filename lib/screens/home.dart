@@ -16,7 +16,7 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
-  var Timer_Map = Map<int,Timer>() ;
+  var Timer_Map = <int,Timer>{} ;
   void sendDateToDB(String? date) async {
     print("sendDateToDB called with: $date");
 
@@ -32,7 +32,7 @@ class _HomeState extends State<Home> {
       if (parsedDate.isAfter(DateTime.now())) {
         await Supabase.instance.client.from('alarms').insert({
           'alarm_at': parsedDate.toIso8601String(),
-          'user_id': Get.find<GlobalController>().id,
+          'user_id': Get.find<GlobalController>().id.value,
         });
       } 
     } catch (e) {
@@ -84,13 +84,13 @@ class _HomeState extends State<Home> {
                   }
 
                   final alarms = snapshot.data!;
-                  final dformat = DateFormat("yyyy-MM-ddTHH:mm:ss");
+                  final dBformat = DateFormat("yyyy-MM-ddTHH:mm:ss");
                   if (alarms.isEmpty) {
                     return const Center(child: Text('No alarms set.'));
                   }
                   for(final alarm in alarms){
                     if(alarm['active']){
-                      final formatted = dformat.parseUtc(alarm['alarm_at']);
+                      final formatted = dBformat.parseUtc(alarm['alarm_at']);
                       runCodeAt(formatted,alarm['alarm_id'], () async{
                         final url = 'https://www.youtube.com/watch?v=PflEJM-aUug';
                         if (await canLaunchUrl(Uri.parse(url))) {
@@ -116,7 +116,7 @@ class _HomeState extends State<Home> {
                         title: Row(
                           children: [
                             Text(
-                              dformat.parseUtc(alarm['alarm_at']).toLocal().toIso8601String()
+                              DateFormat.yMMMMd(Localizations.localeOf(context).toString()).add_jm().format(dBformat.parseUtc(alarm['alarm_at']).toLocal())
                               ,
                               style: const TextStyle(fontSize: 24.0),
                             ),

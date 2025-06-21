@@ -7,7 +7,7 @@ import 'dart:convert';
 import 'home.dart';
 
 class GlobalController extends GetxController {
-  var id = -1.obs;
+  RxString id = "".obs;
 }
 class LoginScreen extends StatefulWidget {
   @override
@@ -19,8 +19,25 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController passwordController = TextEditingController();
 
   void _login() async {
-
+      final emailT = emailController.text;
+      final pass = passwordController.text;
+      try{
+      final res = await Supabase.instance.client.auth.signInWithPassword(
+        email: emailT,
+        password: pass
+      );
+      final gb = Get.put(GlobalController());
+      gb.id.value = res.user!.id;
+      print("User id is ${gb.id.value}");
+      Navigator.push(context, MaterialPageRoute(builder: (context) => const Home()) );
       }
+      catch(e){
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Invalid Login Credentials")));
+      }
+        
+      }
+   
+      
 
   @override
   Widget build(BuildContext context) {
