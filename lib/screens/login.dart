@@ -20,7 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _login() async {
     String email = emailController.text;
-    String Entered_Password = passwordController.text;
+    String enteredPassword = passwordController.text;
     late String ogPass;
     late String hashPass;
     late int id;
@@ -33,7 +33,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (data.isEmpty) {
       print('No users found.');
     } else {
-      hashPass = sha256.convert(utf8.encode(Entered_Password)).toString();
+      hashPass = sha256.convert(utf8.encode(enteredPassword)).toString();
       if(ogPass ==  hashPass) {
         id = data[0]['id'];
         print("id is $id");

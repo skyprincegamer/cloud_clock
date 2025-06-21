@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:get/get.dart';
 import 'package:date_time_picker/date_time_picker.dart';
+import 'package:intl/intl.dart';
 import 'login.dart';
 
 class Home extends StatefulWidget {
@@ -21,12 +24,12 @@ class _HomeState extends State<Home> {
     }
 
     try {
-      final parsedDate = DateTime.parse(date);
-      print("Parsed date: $parsedDate");
+      final parsedDate = DateTime.parse(date).toUtc();
+      print("Parsed date: ${parsedDate.toIso8601String()}");
 
       if (parsedDate.isAfter(DateTime.now())) {
         await Supabase.instance.client.from('alarms').insert({
-          'alarm_at': date,
+          'alarm_at': parsedDate.toIso8601String(),
           'user_id': Get.find<GlobalController>().id,
         });
       } 
@@ -34,11 +37,23 @@ class _HomeState extends State<Home> {
       print("Error parsing date: $e");
     }
   }
+  void runCodeAt(DateTime target , Function clbk){
+    final diff = target.difference(DateTime.now());
+    if(diff.isNegative){
+      print("Aint possible");
+      return;
+    }
+    print('Timer set for $diff , target is $target , now is ${DateTime.now()}');
+    Timer(diff ,(){
+      
+      clbk();
+      });
+
+  }
 
   @override
   Widget build(BuildContext context) {
     final userId = Get.find<GlobalController>().id;
-
     return Scaffold(
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -68,8 +83,17 @@ class _HomeState extends State<Home> {
                   }
 
                   final alarms = snapshot.data!;
+                  final dformat = DateFormat("yyyy-MM-ddTHH:mm:ss");
                   if (alarms.isEmpty) {
                     return const Center(child: Text('No alarms set.'));
+                  }
+                  for(final alarm in alarms){
+                    if(alarm['active']){
+                      final formatted = dformat.parseUtc(alarm['alarm_at']);
+                      runCodeAt(formatted, (){
+                          print("This code was run out of the loop");
+                      });                      
+                    }
                   }
 
                   return ListView.builder(
@@ -77,10 +101,22 @@ class _HomeState extends State<Home> {
                     itemBuilder: (context, index) {
                       final alarm = alarms[index];
                       return ListTile(
-                        title: Text(
-                          alarm['alarm_at'],
-                          style: const TextStyle(fontSize: 24.0),
+                        title: Row(
+                          children: [
+                            Text(
+                              dformat.parseUtc(alarm['alarm_at']).toLocal().toIso8601String()
+                              ,
+                              style: const TextStyle(fontSize: 24.0),
+                            ),
+                            Checkbox(value: alarm['active'], onChanged: (v) async{
+                                await Supabase.instance.client
+                                      .from('alarms')
+                                      .update({'active': v})
+                                      .eq('alarm_id', alarm['alarm_id']);
+                            })
+                          ],
                         ),
+                        
                       );
                     },
                   );
