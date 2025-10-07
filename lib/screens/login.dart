@@ -2,8 +2,6 @@ import 'package:get/get.dart';
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:crypto/crypto.dart';
-import 'dart:convert';
 import 'home.dart';
 
 class GlobalController extends GetxController {
@@ -33,6 +31,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       catch(e){
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Invalid Login Credentials")));
+        print(e);
       }
         
       }

@@ -130,6 +130,14 @@ class _HomeState extends State<Home> {
                             await Supabase.instance.client
                             .from('alarms')
                             .delete().eq('alarm_id', alarm['alarm_id']);
+                          setState(() {
+                              alarms.removeAt(index);
+                          });
+                            if(Timer_Map.containsKey(alarm['alarm_id'])){
+                              Timer_Map[alarm['alarm_id']]?.cancel();
+                              print("Timer ${alarm['alarm_id']} cancelled");
+                            }
+
                           }, icon:Icon(Icons.delete)
                           )
                           ],
