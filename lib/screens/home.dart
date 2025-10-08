@@ -1,13 +1,14 @@
 import 'dart:async';
-
+import 'dart:isolate';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:get/get.dart';
 import 'package:date_time_picker/date_time_picker.dart';
 import 'package:intl/intl.dart';
 import 'login.dart';
-import 'package:url_launcher/url_launcher.dart';
-
+import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
+import 'package:audioplayers/audioplayers.dart';
 class Home extends StatefulWidget {
   const Home({super.key});
 
@@ -39,18 +40,29 @@ class _HomeState extends State<Home> {
       print("Error parsing date: $e");
     }
   }
-  void runCodeAt(DateTime target , int alarm_id,  Function clbk){
-    final diff = target.difference(DateTime.now());
-    if(diff.isNegative){
-      print("Aint possible");
-      return;
-    }
-    print('Timer set for $diff and id $alarm_id');
-    Timer_Map[alarm_id] = Timer(diff, ()
-    {
-      clbk();
+
+  @pragma('vm:entry-point')
+  void  weapon() async{    
+  final DateTime now = DateTime.now();
+  final int isolateId = Isolate.current.hashCode;
+  print("[$now] Hello, world! isolate=$isolateId function='$murder'");
+}
+  void murder(DateTime f , int ID) async {
+    if(Platform.isAndroid){await AndroidAlarmManager.initialize();
+    final int alarmID = 1;
+    await AndroidAlarmManager.oneShot(const Duration(minutes: 1), alarmID, weapon);}
+    else if(Platform.isLinux){
+      if (f.difference(DateTime.now()).isNegative){
+        return;
+      }
+      Timer_Map[ID] = Timer(f.difference(DateTime.now()), () async {
+        await Process.run('notify-send', ['${f.toLocal()}', 'Alarm']);
+        final player = AudioPlayer();
+        await player.play(AssetSource('mixkit-retro-game-emergency-alarm-1000.wav'));
       });
+    }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -91,14 +103,7 @@ class _HomeState extends State<Home> {
                   for(final alarm in alarms){
                     if(alarm['active']){
                       final formatted = dBformat.parseUtc(alarm['alarm_at']);
-                      runCodeAt(formatted,alarm['alarm_id'], () async{
-                        final url = 'https://www.youtube.com/watch?v=PflEJM-aUug';
-                        if (await canLaunchUrl(Uri.parse(url))) {
-                          await launchUrl(Uri.parse(url));
-                        } else {
-                           print('Could not launch $url');
-                        }
-                      });                      
+                      murder(formatted, alarm['alarm_id']);                      
                     }
                     else if(!alarm['active']){
                       if(Timer_Map.containsKey(alarm['alarm_id'])){
@@ -130,9 +135,8 @@ class _HomeState extends State<Home> {
                             await Supabase.instance.client
                             .from('alarms')
                             .delete().eq('alarm_id', alarm['alarm_id']);
-                          setState(() {
-                              alarms.removeAt(index);
-                          });
+                          setState(() {});
+
                             if(Timer_Map.containsKey(alarm['alarm_id'])){
                               Timer_Map[alarm['alarm_id']]?.cancel();
                               print("Timer ${alarm['alarm_id']} cancelled");
@@ -203,7 +207,7 @@ class _HomeState extends State<Home> {
                 style: TextStyle(fontSize: 24.0),
               ),
             ),
-
+            
           ],
         ),
       ),

@@ -19,8 +19,8 @@ dependencies:
   date_time_picker: ^2.1.0
   flutter_dotenv: ^5.1.0
   intl: ^0.17.0
-  youtube_player_flutter: ^9.1.1
-  url_launcher: ^6.3.1
+  android_alarm_manager_plus: ^5.0.0
+  audioplayers: ^6.5.1
 
 dev_dependencies:
   flutter_test:
@@ -32,3 +32,5 @@ flutter:
   uses-material-design: true
   assets:
     - .env
+    - assets/mixkit-retro-game-emergency-alarm-1000.wav
+
