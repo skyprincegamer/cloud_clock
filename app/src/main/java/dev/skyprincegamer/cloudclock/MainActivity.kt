@@ -33,10 +33,14 @@ import dev.skyprincegamer.cloudclock.ui.theme.CloudClockTheme
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
-import io.github.jan.supabase.postgrest.from
-import kotlinx.coroutines.runBlocking
+import io.github.jan.supabase.realtime.Realtime
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 
 val supabase = createSupabaseClient(
@@ -49,7 +53,10 @@ val supabase = createSupabaseClient(
         autoLoadFromStorage = true
     }
     install(Postgrest)
+    install(Realtime)
 }
+
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
 
@@ -64,10 +71,11 @@ class MainActivity : ComponentActivity() {
                     val context = LocalContext.current
 
                     LaunchedEffect(Unit) {
-                        val session = supabase.auth.currentSessionOrNull()
-                        if(session != null)
-                            context.startActivity(Intent(context , HomeScreen::class.java))
-
+                        supabase.auth.sessionStatus.collect { status ->
+                            if (status is SessionStatus.Authenticated) {
+                                context.startActivity(Intent(context, HomeScreen::class.java))
+                            }
+                        }
                     }
 
                     Column(modifier = Modifier
@@ -92,23 +100,24 @@ class MainActivity : ComponentActivity() {
                         )
                         Spacer(modifier = Modifier.height(32.dp))
                         Button(onClick = {
-                            runBlocking{
-                                try{
+                            CoroutineScope(Dispatchers.IO).launch {
+                                try {
                                     supabase.auth.signInWith(Email) {
                                         email = loginEmail
                                         password = loginPassword
                                     }
-                                    Toast.makeText(context, "SIGN IN SUCCESSFUL", Toast.LENGTH_LONG)
-                                        .show()
-                                    context.startActivity(Intent(context , HomeScreen::class.java))
-                                }
-                                catch (e : Exception){
-                                    Log.i("LOGIN ERROR" , e.toString())
-                                    Toast.makeText(context, "Invalid Credentials", Toast.LENGTH_LONG)
-                                        .show()
+                                    withContext(Dispatchers.Main) {
+                                        Toast.makeText(context, "SIGN IN SUCCESSFUL", Toast.LENGTH_LONG).show()
+                                        context.startActivity(Intent(context, HomeScreen::class.java))
+                                    }
+                                } catch (e: Exception) {
+                                    withContext(Dispatchers.Main) {
+                                        Toast.makeText(context, "Invalid Credentials", Toast.LENGTH_LONG).show()
+                                    }
+                                    Log.e("LOGIN ERROR", e.toString())
                                 }
                             }
-                        }) { Text("CLICK ME")}
+                        }) { Text("Sign In")}
                     }
                 }
             }
