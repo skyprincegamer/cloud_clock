@@ -3,7 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     kotlin("plugin.serialization") version "2.2.0"
-
+    id("com.google.devtools.ksp")
 }
 
 android {
@@ -64,5 +64,9 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:postgrest-kt")
     implementation("io.github.jan-tennert.supabase:auth-kt")
     implementation("io.github.jan-tennert.supabase:realtime-kt")
-    implementation("io.ktor:ktor-client-android:3.3.3")
+    implementation("io.ktor:ktor-client-okhttp:3.3.3")
+    implementation("androidx.compose.material:material-icons-extended")
+    val room_version = "2.8.4"
+    implementation("androidx.room:room-runtime:${room_version}")
+    ksp("androidx.room:room-compiler:$room_version")
 }

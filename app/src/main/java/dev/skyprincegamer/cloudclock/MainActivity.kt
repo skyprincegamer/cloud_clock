@@ -37,6 +37,7 @@ import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.realtime.Realtime
+import io.ktor.client.engine.okhttp.OkHttp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -54,6 +55,7 @@ val supabase = createSupabaseClient(
     }
     install(Postgrest)
     install(Realtime)
+    httpEngine = OkHttp.create()
 }
 
 
