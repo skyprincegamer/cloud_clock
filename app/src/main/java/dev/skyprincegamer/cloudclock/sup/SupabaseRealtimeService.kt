@@ -9,7 +9,9 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.room.Room
+import androidx.room.RoomDatabase
 import dev.skyprincegamer.cloudclock.db.AlarmDatabase
+import dev.skyprincegamer.cloudclock.db.RoomManager
 import dev.skyprincegamer.cloudclock.models.Alarm
 import dev.skyprincegamer.cloudclock.util.AlarmScheduler
 import dev.skyprincegamer.cloudclock.util.DuplicateInsertionException
@@ -26,18 +28,16 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.util.concurrent.Executors
 
 
 class SupabaseRealtimeService : Service() {
     private lateinit var supabaseClient: SupabaseClient
     private var realtimeChannel: RealtimeChannel? = null
-    private val db = Room.databaseBuilder(
-        applicationContext,
-        AlarmDatabase::class.java, "alarm"
-    ).build()
+    private lateinit var db : AlarmDatabase
     override fun onCreate() {
         super.onCreate()
-
+        db = RoomManager.getDB(this)
         supabaseClient = SupabaseManager.getClient()
         startForeground(1, createNotification())
         runBlocking{ doInitialSync() }
@@ -75,16 +75,19 @@ class SupabaseRealtimeService : Service() {
                         when (change) {
                             is PostgresAction.Insert -> {
                                 val newAlarm = change.decodeRecord<Alarm>()
+                                Log.d("SupabaseRealtimeService", "new alarm ${newAlarm} for insert")
                                 handleNewAlarm(newAlarm)
                             }
 
                             is PostgresAction.Update -> {
                                 val newAlarm = change.decodeRecord<Alarm>()
+                                Log.d("SupabaseRealtimeService", "new alarm ${newAlarm} for update")
                                 handleUpdatedAlarm(newAlarm)
                             }
 
                             is PostgresAction.Delete -> {
                                 val deletedId = change.oldRecord["alarm_id"].toString().toInt()
+                                Log.d("SupabaseRealtimeService", "alarm deleted with id ${deletedId}")
                                 handleDeletedAlarm(deletedId)
                             }
 

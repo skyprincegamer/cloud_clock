@@ -54,6 +54,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import dev.skyprincegamer.cloudclock.db.AlarmDatabase
+import dev.skyprincegamer.cloudclock.db.RoomManager
 import dev.skyprincegamer.cloudclock.models.Alarm
 import dev.skyprincegamer.cloudclock.sup.SupabaseManager
 import dev.skyprincegamer.cloudclock.ui.theme.CloudClockTheme
@@ -86,10 +87,7 @@ class HomeScreen : ComponentActivity() {
         setContent {
             CloudClockTheme {
                 val ctxt = LocalContext.current
-                val db = Room.databaseBuilder(ctxt,
-                    AlarmDatabase::class.java,
-                    "alarm"
-                    ).build()
+
                 var showAdder by remember { mutableStateOf(false) }
                 val listAlarms = remember { mutableStateListOf<Alarm>() }
                 val alarmManager = ctxt.getSystemService(ALARM_SERVICE) as AlarmManager
@@ -112,7 +110,7 @@ class HomeScreen : ComponentActivity() {
                 Scaffold(modifier = Modifier.fillMaxSize() ,
                     floatingActionButton = { AlarmAddButton(onClick = {showAdder = true})
                 }) { innerPadding ->
-                    AlarmsList(Modifier.padding(innerPadding) ,db)
+                    AlarmsList(Modifier.padding(innerPadding) , RoomManager.getDB(ctxt))
                     if(showAdder) AlarmAddDialog(onDismissRequest = {showAdder = false})
                 }
             }
@@ -147,7 +145,9 @@ fun AlarmsList(
 
     LazyColumn(modifier = modifier) {
 
-        items(alarms) { alarm ->
+        items(alarms,
+            key = {a -> a.alarm_id!!})
+        { alarm ->
             val scope = rememberCoroutineScope()
             val format = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")
             val utcTime = LocalDateTime.parse(alarm.alarm_at , format)

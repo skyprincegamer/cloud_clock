@@ -29,22 +29,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.skyprincegamer.cloudclock.sup.SupabaseManager
+import dev.skyprincegamer.cloudclock.sup.SupabaseRealtimeService
 import dev.skyprincegamer.cloudclock.ui.theme.CloudClockTheme
-import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.status.SessionStatus
-import io.github.jan.supabase.createSupabaseClient
-import io.github.jan.supabase.postgrest.Postgrest
-import io.github.jan.supabase.realtime.Realtime
-import io.ktor.client.engine.okhttp.OkHttp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-
-
 
 
 class MainActivity : ComponentActivity() {
@@ -61,11 +55,16 @@ class MainActivity : ComponentActivity() {
                     val context = LocalContext.current
 
                     LaunchedEffect(Unit) {
-                        supabase.auth.sessionStatus.collect { status ->
+                        SupabaseManager.getClient().auth.sessionStatus.collect { status ->
                             if (status is SessionStatus.Authenticated) {
                                 context.startActivity(Intent(context, HomeScreen::class.java))
+                                val serviceIntent = Intent(context, SupabaseRealtimeService::class.java)
+                                context.startForegroundService(serviceIntent)
+                                Log.d("AutoStart", "Started the service")
                             }
+
                         }
+
                     }
 
                     Column(modifier = Modifier
@@ -92,7 +91,7 @@ class MainActivity : ComponentActivity() {
                         Button(onClick = {
                             CoroutineScope(Dispatchers.IO).launch {
                                 try {
-                                    supabase.auth.signInWith(Email) {
+                                    SupabaseManager.getClient().auth.signInWith(Email) {
                                         email = loginEmail
                                         password = loginPassword
                                     }

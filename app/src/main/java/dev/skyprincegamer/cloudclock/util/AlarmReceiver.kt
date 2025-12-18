@@ -11,12 +11,9 @@ import dev.skyprincegamer.cloudclock.sup.SupabaseRealtimeService
 
 class AlarmReceiver: BroadcastReceiver() {
     override fun onReceive(context: Context?, intent: Intent?) {
-        if (intent?.action == Intent.ACTION_BOOT_COMPLETED) {
-            val serviceIntent = Intent(context, SupabaseRealtimeService::class.java)
-            context?.startForegroundService(serviceIntent)
-        }
-
-        Log.d("alarmManager", "works")
+//        if (intent?.action == Intent.ACTION_BOOT_COMPLETED) {
+//
+//        }
     }
 }
 private fun createNotificationChannel(context: Context?) {

@@ -12,7 +12,7 @@ object SupabaseManager {
 
     fun getClient(): SupabaseClient {
         if (_client == null) {
-            val supabase = createSupabaseClient(
+            _client = createSupabaseClient(
                 supabaseUrl = "https://dvoquibudfcvelmgyisr.supabase.co",
                 supabaseKey ="sb_publishable_VpvAKa1D7yNjYlHsVuyzVw_eIZcEpf0"
             ) {
