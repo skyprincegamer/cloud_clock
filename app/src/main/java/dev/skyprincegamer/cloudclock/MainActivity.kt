@@ -44,19 +44,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 
-val supabase = createSupabaseClient(
-    supabaseUrl = "https://dvoquibudfcvelmgyisr.supabase.co",
-    supabaseKey ="sb_publishable_VpvAKa1D7yNjYlHsVuyzVw_eIZcEpf0"
-) {
-    install(Auth){
-        alwaysAutoRefresh = true
-        autoSaveToStorage = true
-        autoLoadFromStorage = true
-    }
-    install(Postgrest)
-    install(Realtime)
-    httpEngine = OkHttp.create()
-}
+
 
 
 class MainActivity : ComponentActivity() {

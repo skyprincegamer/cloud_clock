@@ -50,7 +50,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.room.Room
+import androidx.room.RoomDatabase
+import dev.skyprincegamer.cloudclock.db.AlarmDatabase
+import dev.skyprincegamer.cloudclock.models.Alarm
+import dev.skyprincegamer.cloudclock.sup.SupabaseManager
 import dev.skyprincegamer.cloudclock.ui.theme.CloudClockTheme
+import dev.skyprincegamer.cloudclock.util.AlarmReceiver
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.realtime.PostgresAction
@@ -62,11 +69,9 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.Serializable
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
-import java.time.ZoneOffset
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -81,6 +86,10 @@ class HomeScreen : ComponentActivity() {
         setContent {
             CloudClockTheme {
                 val ctxt = LocalContext.current
+                val db = Room.databaseBuilder(ctxt,
+                    AlarmDatabase::class.java,
+                    "alarm"
+                    ).build()
                 var showAdder by remember { mutableStateOf(false) }
                 val listAlarms = remember { mutableStateListOf<Alarm>() }
                 val alarmManager = ctxt.getSystemService(ALARM_SERVICE) as AlarmManager
@@ -103,7 +112,7 @@ class HomeScreen : ComponentActivity() {
                 Scaffold(modifier = Modifier.fillMaxSize() ,
                     floatingActionButton = { AlarmAddButton(onClick = {showAdder = true})
                 }) { innerPadding ->
-                    AlarmsList(alarms = listAlarms , Modifier.padding(innerPadding) , manager = alarmManager)
+                    AlarmsList(Modifier.padding(innerPadding) ,db)
                     if(showAdder) AlarmAddDialog(onDismissRequest = {showAdder = false})
                 }
             }
@@ -111,14 +120,7 @@ class HomeScreen : ComponentActivity() {
     }
 }
 
-@Serializable
-data class Alarm(
-    val alarm_id:Int? = null,
-    val created_at : String? = null,
-    val alarm_at : String,
-    val user_id : String,
-    val active : Boolean
-)
+
 
 suspend fun addAlarmToDatabase(t : String) {
     val format = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
@@ -127,77 +129,22 @@ suspend fun addAlarmToDatabase(t : String) {
         .atZone(ZoneId.systemDefault())
         .withZoneSameInstant(ZoneId.of("UTC"))
     val timestamp = utcZdt.format(DateTimeFormatter.ISO_INSTANT)
-    val newAlarm = Alarm(alarm_at = timestamp,
-        user_id = supabase.auth.currentUserOrNull()!!.id,
-        active = true)
-    supabase.from("alarms").insert(newAlarm)
+    val newAlarm = Alarm(
+        alarm_at = timestamp,
+        user_id = SupabaseManager.getClient().auth.currentUserOrNull()!!.id,
+        active = true
+    )
+    SupabaseManager.getClient().from("alarms").insert(newAlarm)
 }
 @Composable
 fun AlarmsList(
-    alarms: SnapshotStateList<Alarm>,
     modifier: Modifier = Modifier,
-    manager: AlarmManager
+    db : AlarmDatabase
 ) {
+
     val ctxt = LocalContext.current
-    LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO){
-            val results = supabase.from("alarms").select().decodeList<Alarm>()
-            Log.i("Results of select" , results.toString())
-            alarms.addAll(results)
-        }
-    }
-    LaunchedEffect(Unit) {
-        val channel = supabase.channel("alarms-channel")
-        channel.postgresChangeFlow<PostgresAction>(schema = "public") {
-            table = "alarms"
-        }.onEach { action ->
-            when (action) {
-                is PostgresAction.Insert -> {
-                    val newAlarm = action.decodeRecord<Alarm>()
-                    alarms.add(newAlarm)
-                    Log.i("Realtime", "Insert: $newAlarm")
-                }
-                is PostgresAction.Update -> {
-                    val updatedAlarm = action.decodeRecord<Alarm>()
-                    val index = alarms.indexOfFirst { it.alarm_id == updatedAlarm.alarm_id }
-                    if (index != -1) {
-                        alarms[index] = updatedAlarm
-                    }
-                    Log.i("Realtime", "Update: $updatedAlarm")
+    val alarms by db.alarmDAO().getAll().collectAsStateWithLifecycle(initialValue = emptyList())
 
-                }
-                is PostgresAction.Delete -> {
-                    val deletedId = action.oldRecord["alarm_id"].toString().toInt()
-                    alarms.removeAll { it.alarm_id == deletedId }
-                    Log.i("Realtime", "Delete: $deletedId")
-                    val alarmUp = (PendingIntent.getBroadcast(ctxt , deletedId ,
-                        Intent(ctxt, AlarmReceiver::class.java),
-                        PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
-                    ) != null)
-                    if(alarmUp){
-                        manager.cancel(
-                            PendingIntent.getBroadcast(
-                                ctxt,
-                                deletedId,
-                                Intent(ctxt, AlarmReceiver::class.java),
-                                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
-                            )
-                        )
-                        PendingIntent.getBroadcast(
-                            ctxt,
-                            deletedId,
-                            Intent(ctxt, AlarmReceiver::class.java),
-                            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
-                        ).cancel()
-                        Log.i("Alarms Management" , "Alarm id $deletedId unset")
-                    }
-                }
-                else -> {}
-            }
-        }.launchIn(this)
-
-        channel.subscribe()
-    }
     LazyColumn(modifier = modifier) {
 
         items(alarms) { alarm ->
@@ -210,67 +157,12 @@ fun AlarmsList(
             val timestamp = localTime.format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM)
                 .withLocale(Locale.getDefault()).withZone(localTime.zone))
 
-
-            val alarmUp = (PendingIntent.getBroadcast(ctxt , alarm.alarm_id!! ,
-                Intent(ctxt, AlarmReceiver::class.java),
-                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
-            ) != null)
-            if(!alarm.active && alarmUp){
-                manager.cancel(PendingIntent.getBroadcast(ctxt , alarm.alarm_id ,
-                    Intent(ctxt, AlarmReceiver::class.java)
-                    , PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
-                ) )
-                PendingIntent.getBroadcast(ctxt , alarm.alarm_id ,
-                    Intent(ctxt, AlarmReceiver::class.java)
-                    , PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
-                ).cancel()
-                Log.i("Alarms Management" , "Alarm id ${alarm.alarm_id} unset")
-            }
-            else if(alarm.active && !alarmUp){
-                val format = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")
-                val utcTime = LocalDateTime.parse(alarm.alarm_at , format)
-                val milis= utcTime.toInstant(ZoneOffset.UTC).toEpochMilli()
-                val pendingIntent = PendingIntent.getBroadcast(
-                    ctxt,
-                    alarm.alarm_id,
-                    Intent(ctxt, AlarmReceiver::class.java).apply {
-                        putExtra("ALARM_MSG", "my alarm message")
-                    },
-                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-                )
-
-                if(milis > System.currentTimeMillis()){
-                    manager.setExactAndAllowWhileIdle(
-                        AlarmManager.RTC_WAKEUP,
-                        milis,
-                        pendingIntent
-                    )
-                Log.i("Alarms Management" , "Alarm Set with seconds ${(milis - System.currentTimeMillis())/1000L} and id ${alarm.alarm_id}")
-                }
-                else{
-                    Log.i("Alarms Management" , "Alarm id ${alarm.alarm_id} is expired and cannot be set")
-                    scope.launch(Dispatchers.IO){
-                        supabase.from("alarms").update(
-                            {
-                                Alarm::active setTo false
-                            }
-                        ) {
-                            filter {
-                                Alarm::alarm_id eq alarm.alarm_id
-                            }
-                        }
-                    }
-                }
-            }
-
-
-
             ListItem(headlineContent = {Text(timestamp)} ,
                 leadingContent = {
                     Checkbox(checked = alarm.active , onCheckedChange = {
                         checkedState -> scope.launch(Dispatchers.IO){
                         try{
-                            supabase.from("alarms").update(
+                            SupabaseManager.getClient().from("alarms").update(
                                 {
                                     Alarm::active setTo checkedState
                                 }
@@ -291,7 +183,7 @@ fun AlarmsList(
                 trailingContent = {
                     IconButton(onClick = {
                         scope.launch(Dispatchers.IO) {
-                            supabase.from("alarms").delete{
+                            SupabaseManager.getClient().from("alarms").delete{
                                 filter {
                                     Alarm::alarm_id eq alarm.alarm_id
                                 }
