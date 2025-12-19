@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">CloudClock</string>
     <string name="title_activity_home_screen">HomeScreen</string>
+    <string name="title_activity_alarm_screen">AlarmScreen</string>
 </resources>

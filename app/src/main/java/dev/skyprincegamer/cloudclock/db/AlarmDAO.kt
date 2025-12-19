@@ -11,7 +11,10 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface AlarmDAO {
     @Query("SELECT * FROM alarm")
-    fun getAll(): Flow<List<Alarm>>
+    fun getAllFlow(): Flow<List<Alarm>>
+
+    @Query("SELECT * FROM alarm")
+    fun getAll(): List<Alarm>
 
     @Insert
     suspend fun insert(a: Alarm)

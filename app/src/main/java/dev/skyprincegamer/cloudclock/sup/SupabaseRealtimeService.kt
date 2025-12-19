@@ -13,7 +13,7 @@ import androidx.room.RoomDatabase
 import dev.skyprincegamer.cloudclock.db.AlarmDatabase
 import dev.skyprincegamer.cloudclock.db.RoomManager
 import dev.skyprincegamer.cloudclock.models.Alarm
-import dev.skyprincegamer.cloudclock.util.AlarmScheduler
+import dev.skyprincegamer.cloudclock.alarm.AlarmScheduler
 import dev.skyprincegamer.cloudclock.util.DuplicateInsertionException
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
@@ -24,8 +24,10 @@ import io.github.jan.supabase.realtime.decodeRecord
 import io.github.jan.supabase.realtime.postgresChangeFlow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.Executors
@@ -35,6 +37,7 @@ class SupabaseRealtimeService : Service() {
     private lateinit var supabaseClient: SupabaseClient
     private var realtimeChannel: RealtimeChannel? = null
     private lateinit var db : AlarmDatabase
+
     override fun onCreate() {
         super.onCreate()
         db = RoomManager.getDB(this)
@@ -45,24 +48,50 @@ class SupabaseRealtimeService : Service() {
     }
 
     private suspend fun doInitialSync() {
-        val initAlarms = supabaseClient.from("alarms").select().decodeList<Alarm>()
-        for (alarm in initAlarms){
-            try {
-                AlarmScheduler(this@SupabaseRealtimeService).scheduleAlarm(
-                    alarm.alarm_id!!,
-                    alarm.alarm_at
-                )
-                db.alarmDAO().upsert(alarm)
+        try {
+            val supabaseAlarms = supabaseClient.from("alarms")
+                .select()
+                .decodeList<Alarm>()
+
+            val supabaseIds = supabaseAlarms.mapNotNull { it.alarm_id }.toSet()
+
+            for (alarm in supabaseAlarms) {
+                try {
+                    AlarmScheduler(this@SupabaseRealtimeService).scheduleAlarm(
+                        alarm.alarm_id!!,
+                        alarm.alarm_at
+                    )
+                    db.alarmDAO().upsert(alarm)
+                } catch (e: Exception) {
+                    Log.e("Scheduler", "Failed to schedule alarm ${alarm.alarm_id}", e)
+                    supabaseClient.from("alarms").delete {
+                        filter {
+                            Alarm::alarm_id eq alarm.alarm_id
+                        }
+                    }
+                    db.alarmDAO().delete(alarm.alarm_id!!)
+                }
             }
-            catch (_ : Exception){
-                supabaseClient.from("alarms").delete{
-                    filter {
-                        Alarm::alarm_id eq alarm.alarm_id
+
+            val localAlarms = db.alarmDAO().getAll().first()
+
+            for (localAlarm in localAlarms) {
+                if (localAlarm.alarm_id !in supabaseIds) {
+                    db.alarmDAO().delete(localAlarm.alarm_id!!)
+                    try {
+                        AlarmScheduler(this@SupabaseRealtimeService).cancelAlarm(localAlarm.alarm_id)
+                    } catch (e: Exception) {
+                        Log.e("Scheduler", "Failed to cancel alarm ${localAlarm.alarm_id}", e)
                     }
                 }
             }
-            }
+
+            Log.i("SupabaseRealtimeService", "Initial sync completed: ${supabaseAlarms.size} alarms")
+
+        } catch (e: Exception) {
+            Log.e("SupabaseRealtimeService", "Initial sync failed", e)
         }
+    }
 
 
     private fun setupSupabaseRealtime() {

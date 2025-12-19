@@ -1,16 +1,16 @@
-package dev.skyprincegamer.cloudclock.util
+package dev.skyprincegamer.cloudclock.alarm
 
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
-import android.content.Context.ALARM_SERVICE
 import android.content.Intent
+import dev.skyprincegamer.cloudclock.util.DuplicateInsertionException
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 class AlarmScheduler(private val ctxt : Context) {
-    private val manager : AlarmManager = ctxt.getSystemService(ALARM_SERVICE) as AlarmManager
+    private val manager : AlarmManager = ctxt.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     fun scheduleAlarm(alarm_id : Int , alarm_at: String){
         if (checkIfAlarmExists(alarm_id))
             throw DuplicateInsertionException("Alarm with ID $alarm_id already exists")
@@ -23,6 +23,8 @@ class AlarmScheduler(private val ctxt : Context) {
                 alarm_id,
                 Intent(ctxt, AlarmReceiver::class.java).apply {
                     putExtra("ALARM_MSG", "my alarm message")
+                    putExtra("ALARM_ID" , alarm_id)
+                    setAction("dev.skyprincegamer.cloudclock.ALARM_TRIGGERED")
                 },
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )

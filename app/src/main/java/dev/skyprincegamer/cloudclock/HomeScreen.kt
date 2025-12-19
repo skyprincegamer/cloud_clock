@@ -1,8 +1,10 @@
 package dev.skyprincegamer.cloudclock
 
+import android.Manifest
 import android.app.AlarmManager
-import android.app.PendingIntent
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
@@ -10,6 +12,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -38,36 +41,25 @@ import androidx.compose.material3.TimePickerState
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.room.Room
-import androidx.room.RoomDatabase
 import dev.skyprincegamer.cloudclock.db.AlarmDatabase
 import dev.skyprincegamer.cloudclock.db.RoomManager
 import dev.skyprincegamer.cloudclock.models.Alarm
 import dev.skyprincegamer.cloudclock.sup.SupabaseManager
 import dev.skyprincegamer.cloudclock.ui.theme.CloudClockTheme
-import dev.skyprincegamer.cloudclock.util.AlarmReceiver
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.from
-import io.github.jan.supabase.realtime.PostgresAction
-import io.github.jan.supabase.realtime.channel
-import io.github.jan.supabase.realtime.decodeRecord
-import io.github.jan.supabase.realtime.postgresChangeFlow
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Instant
@@ -89,12 +81,11 @@ class HomeScreen : ComponentActivity() {
                 val ctxt = LocalContext.current
 
                 var showAdder by remember { mutableStateOf(false) }
-                val listAlarms = remember { mutableStateListOf<Alarm>() }
                 val alarmManager = ctxt.getSystemService(ALARM_SERVICE) as AlarmManager
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     if (!alarmManager.canScheduleExactAlarms()) {
                         Log.e(
-                            "Alarms Management",
+                            "AlarmScehduler",
                             "Cannot schedule exact alarms - permission not granted"
                         )
                         val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
@@ -102,23 +93,43 @@ class HomeScreen : ComponentActivity() {
                     }
                     else{
                         Log.i(
-                            "Alarms Management",
+                            "AlarmScheduler",
                             "manager.canScheduleExactAlarms() = ${alarmManager.canScheduleExactAlarms()}"
                         )
                     }
                 }
+
+
+
+
                 Scaffold(modifier = Modifier.fillMaxSize() ,
                     floatingActionButton = { AlarmAddButton(onClick = {showAdder = true})
                 }) { innerPadding ->
                     AlarmsList(Modifier.padding(innerPadding) , RoomManager.getDB(ctxt))
                     if(showAdder) AlarmAddDialog(onDismissRequest = {showAdder = false})
+
                 }
+            }
+        }
+        val requestPermissionLauncher =
+            registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+                Log.d(
+                    "NotificationPermission",
+                    if (isGranted) "POST_NOTIFICATIONS granted"
+                    else "POST_NOTIFICATIONS denied"
+                )
+            }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
     }
 }
-
-
 
 suspend fun addAlarmToDatabase(t : String) {
     val format = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
@@ -141,7 +152,7 @@ fun AlarmsList(
 ) {
 
     val ctxt = LocalContext.current
-    val alarms by db.alarmDAO().getAll().collectAsStateWithLifecycle(initialValue = emptyList())
+    val alarms by db.alarmDAO().getAllFlow().collectAsStateWithLifecycle(initialValue = emptyList())
 
     LazyColumn(modifier = modifier) {
 
@@ -227,8 +238,8 @@ fun AlarmAddDialog(onDismissRequest: () -> Unit) {
             Row {
                 val scope = rememberCoroutineScope()
                 Text(myTime)
-                TextButton(onClick = {showDateModal = true}) { Text("Pick\nDate") }
-                TextButton(onClick = {showTimeModal = true} , enabled = myTime.isNotBlank()) { Text("Pick\nTime") }
+                TextButton(onClick = {showDateModal = true} , enabled = myTime.isBlank()) { Text("Pick\nDate") }
+                TextButton(onClick = {showTimeModal = true} , enabled = myTime.isNotBlank() && !myTime.contains(':')) { Text("Pick\nTime") }
                 TextButton(onClick = {
                     scope.launch(Dispatchers.IO){
                         try{
