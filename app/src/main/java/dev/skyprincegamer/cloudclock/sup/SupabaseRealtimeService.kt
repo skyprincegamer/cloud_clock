@@ -73,7 +73,7 @@ class SupabaseRealtimeService : Service() {
                 }
             }
 
-            val localAlarms = db.alarmDAO().getAll().first()
+            val localAlarms = db.alarmDAO().getAll()
 
             for (localAlarm in localAlarms) {
                 if (localAlarm.alarm_id !in supabaseIds) {

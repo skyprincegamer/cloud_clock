@@ -18,13 +18,12 @@ class AlarmScheduler(private val ctxt : Context) {
         val utcTime = LocalDateTime.parse(alarm_at, format)
         val milis = utcTime.toInstant(ZoneOffset.UTC).toEpochMilli()
         if (milis > System.currentTimeMillis()) {
-            val pendingIntent = PendingIntent.getBroadcast(
+            val pendingIntent = PendingIntent.getForegroundService(
                 ctxt,
                 alarm_id,
-                Intent(ctxt, AlarmReceiver::class.java).apply {
+                Intent(ctxt, AlarmRingService::class.java).apply {
                     putExtra("ALARM_MSG", "my alarm message")
-                    putExtra("ALARM_ID" , alarm_id)
-                    setAction("dev.skyprincegamer.cloudclock.ALARM_TRIGGERED")
+                    putExtra("ALARM_AT" , alarm_at)
                 },
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
@@ -40,8 +39,8 @@ class AlarmScheduler(private val ctxt : Context) {
 
     }
     fun checkIfAlarmExists(alarm_id : Int) : Boolean {
-        return (PendingIntent.getBroadcast(ctxt , alarm_id ,
-            Intent(ctxt, AlarmReceiver::class.java),
+        return (PendingIntent.getForegroundService(ctxt , alarm_id ,
+            Intent(ctxt, AlarmRingService::class.java),
             PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
         ) != null)
     }
@@ -49,17 +48,17 @@ class AlarmScheduler(private val ctxt : Context) {
         if(!checkIfAlarmExists(alarm_id))
             throw NoSuchElementException("No alarm with alarm_id $alarm_id exists")
         manager.cancel(
-            PendingIntent.getBroadcast(
+            PendingIntent.getForegroundService(
                 ctxt,
                 alarm_id,
-                Intent(ctxt, AlarmReceiver::class.java),
+                Intent(ctxt, AlarmRingService::class.java),
                 PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
             )
         )
-        PendingIntent.getBroadcast(
+        PendingIntent.getForegroundService(
             ctxt,
             alarm_id,
-            Intent(ctxt, AlarmReceiver::class.java),
+            Intent(ctxt, AlarmRingService::class.java),
             PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
         ).cancel()
     }

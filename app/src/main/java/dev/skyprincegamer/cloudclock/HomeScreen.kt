@@ -90,6 +90,8 @@ class HomeScreen : ComponentActivity() {
                         )
                         val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
                         ctxt.startActivity(intent)
+                        val intent2 = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                        ctxt.startActivity(intent2)
                     }
                     else{
                         Log.i(

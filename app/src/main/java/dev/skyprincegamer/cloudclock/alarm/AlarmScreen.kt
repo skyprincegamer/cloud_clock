@@ -34,7 +34,7 @@ class AlarmScreen : ComponentActivity() {
 
                     AlarmScreen(
                         onDismiss = { dismissAlarm(ctxt) },
-                        alarmTime = intent.getStringExtra("ALARM_TIME"),
+                        alarmTime = intent.getStringExtra("ALARM_AT"),
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
@@ -43,11 +43,7 @@ class AlarmScreen : ComponentActivity() {
         }
     }
     fun dismissAlarm(ctxt : Context) {
-        val serviceIntent = Intent(ctxt, AlarmReceiver::class.java).apply {
-            action = "dev.skyprincegamer.cloudclock.ACTION_DISMISS_ALARM"
-        }
-        ctxt.sendBroadcast(serviceIntent)
-
+        stopService(Intent(ctxt, AlarmRingService::class.java))
         finish()
     }
 }
